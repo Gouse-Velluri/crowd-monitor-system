@@ -1,19 +1,13 @@
-django>=4.2,<5.0
+Django>=4.2,<5.0
 djangorestframework>=3.14
-django-channels>=4.0
+channels>=4.0
 channels-redis>=4.1
 daphne>=4.0
 django-cors-headers>=4.0
+whitenoise>=6.6
 
 # Database
-psycopg2-binary>=2.9   # PostgreSQL (production)
+psycopg2-binary>=2.9
 
-# AI Detection (install as needed)
-# opencv-python>=4.8
-# ultralytics>=8.0       # YOLOv8
-
-# Messaging / Alerts
-# twilio>=8.0            # SMS alerts (optional)
-
-# Dev utilities
-python-decouple>=3.8   # Environment variables
+# Environment variables
+python-decouple>=3.8
