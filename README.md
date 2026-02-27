@@ -306,14 +306,17 @@ docker run -d -p 6379:6379 redis:alpine
 
 ## 🛠 Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Backend | Django 4.x |
-| REST API | Django REST Framework |
-| Real-Time | Django Channels + Redis |
-| ASGI Server | Daphne |
-| AI Detection | OpenCV + YOLOv8 |
-| Database | SQLite (dev) / PostgreSQL (prod) |
-| Frontend | HTML + Tailwind CSS |
-| Charts | Chart.js |
-| Maps | Leaflet.js + Leaflet.heat | 
+| Layer         | Technology                |
+| ------------- | ------------------------- |
+| Backend       | Django 4.x                |
+| API           | Django REST Framework     |
+| Real-Time     | Django Channels           |
+| Channel Layer | Redis                     |
+| ASGI Server   | Gunicorn + Uvicorn Worker |
+| AI            | OpenCV + YOLOv8           |
+| Database      | PostgreSQL                |
+| Frontend      | HTML + Tailwind CSS       |
+| Visualization | Chart.js                  |
+| Heatmaps      | Leaflet.js                |
+| Deployment    | Render                    |
+
