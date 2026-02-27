@@ -10,12 +10,9 @@ daphne>=4.0
 # CORS for API
 django-cors-headers>=4.0
 
-# PostgreSQL (production)
-psycopg2-binary>=2.9
-
 # AI Detection
-opencv-python-headless>=4.8  # headless avoids Rust & GUI issues
-ultralytics>=8.0,<8.1        # YOLOv8 prebuilt wheels
+opencv-python-headless>=4.8
+ultralytics>=8.0,<8.1
 
 # Environment variables
 python-decouple>=3.8

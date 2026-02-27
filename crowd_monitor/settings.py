@@ -1,14 +1,21 @@
 import os
 from pathlib import Path
 
+# -----------------------------
+# Base directory
+# -----------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Use environment variables
+# -----------------------------
+# Security & environment
+# -----------------------------
 SECRET_KEY = os.environ.get("SECRET_KEY", "unsafe-default-for-dev-only")
-DEBUG = os.environ.get("DEBUG", "True") == "True"
+DEBUG = os.environ.get("DEBUG", "False") == "True"
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "*").split(",")
 
+# -----------------------------
 # Installed apps
+# -----------------------------
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -16,16 +23,22 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    # Third-party
     'rest_framework',
     'channels',
     'corsheaders',
+
+    # Local apps
     'locations',
     'detection',
     'alerts',
     'dashboard',
 ]
 
+# -----------------------------
 # Middleware
+# -----------------------------
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
@@ -37,6 +50,9 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+# -----------------------------
+# URLs & Templates
+# -----------------------------
 ROOT_URLCONF = 'crowd_monitor.urls'
 
 TEMPLATES = [
@@ -55,19 +71,34 @@ TEMPLATES = [
     },
 ]
 
+# -----------------------------
+# ASGI & Channels
+# -----------------------------
 ASGI_APPLICATION = "crowd_monitor.asgi.application"
 
-# Channels with Redis from environment
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [os.environ.get("REDIS_URL", "redis://localhost:6379/0")],
+# Redis URL from environment; fallback to InMemory for local dev
+REDIS_URL = os.environ.get("REDIS_URL")
+if REDIS_URL:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [REDIS_URL],
+            },
         },
-    },
-}
+    }
+else:
+    # Fallback for local dev or if Redis not set
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer"
+        }
+    }
 
-# Database (PostgreSQL example)
+# -----------------------------
+# Database
+# -----------------------------
+# Using SQLite for Render deployment
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
@@ -75,12 +106,16 @@ DATABASES = {
     }
 }
 
-# Static and media
+# -----------------------------
+# Static & Media
+# -----------------------------
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# -----------------------------
 # Other settings
+# -----------------------------
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOW_ALL_ORIGINS = True
