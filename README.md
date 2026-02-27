@@ -1,6 +1,59 @@
 # 🧠 Smart Crowd Density Monitor
 
 A production-ready Django project with real-time WebSocket updates, AI person detection (YOLO/Haar), REST API, live heatmap dashboard, and an alert system.
+Smart Crowd Density Monitor is a real-time AI system that:
+
+• Detects people using YOLO
+• Calculates occupancy percentage
+• Broadcasts updates instantly using WebSockets
+• Triggers automated safety alerts
+• Stores historical analytics
+• Deploys to cloud using ASGI architecture
+
+It demonstrates production-level backend engineering with real-time architecture and AI integration.
+
+🌍 Problem Statement
+
+High-density public spaces like:
+
+Railway stations
+
+Stadiums
+
+Malls
+
+Religious gatherings
+
+Political rallies
+
+are vulnerable to:
+
+Stampedes
+
+Overcrowding
+
+Emergency delays
+
+Safety violations
+
+Manual monitoring is reactive and unreliable.
+
+A scalable automated monitoring system is required.
+
+💡 Solution Overview
+
+Smart Crowd Density Monitor provides:
+
+✔ AI person detection
+✔ Real-time occupancy tracking
+✔ Density classification
+✔ Automated alert triggering
+✔ Live dashboard updates
+✔ Historical crowd analytics
+✔ Heatmap visualization
+✔ Cloud-ready deployment
+
+It functions like a mini smart-city control backend.
 
 ---
 
