@@ -1,0 +1,268 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}Live Dashboard — CrowdMonitor{% endblock %}
+
+{% block content %}
+<!-- Summary Cards -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="bg-gray-800 rounded-xl p-4">
+        <p class="text-xs text-gray-400 mb-1">Monitored Locations</p>
+        <p class="text-3xl font-bold text-white" id="stat-locations">{{ locations|length }}</p>
+    </div>
+    <div class="bg-gray-800 rounded-xl p-4">
+        <p class="text-xs text-gray-400 mb-1">Total People</p>
+        <p class="text-3xl font-bold text-blue-400" id="stat-total">—</p>
+    </div>
+    <div class="bg-gray-800 rounded-xl p-4">
+        <p class="text-xs text-gray-400 mb-1">Most Crowded</p>
+        <p class="text-lg font-semibold text-yellow-400 truncate" id="stat-busiest">—</p>
+    </div>
+    <div class="bg-gray-800 rounded-xl p-4 {% if active_alerts %}border border-red-500{% endif %}">
+        <p class="text-xs text-gray-400 mb-1">Active Alerts</p>
+        <p class="text-3xl font-bold {% if active_alerts %}text-red-400 pulse-red{% else %}text-green-400{% endif %}"
+           id="stat-alerts">{{ active_alerts }}</p>
+    </div>
+</div>
+
+<!-- Map + Location Cards -->
+<div class="grid md:grid-cols-2 gap-6 mb-6">
+    <!-- Live Map -->
+    <div class="bg-gray-800 rounded-xl p-4">
+        <h2 class="text-sm font-semibold text-gray-300 mb-3">🗺 Live Map</h2>
+        <div id="map" class="rounded-lg overflow-hidden"></div>
+    </div>
+
+    <!-- Location Cards -->
+    <div>
+        <h2 class="text-sm font-semibold text-gray-300 mb-3">📍 All Locations</h2>
+        <div class="space-y-3 max-h-96 overflow-y-auto pr-1" id="location-cards">
+            {% for loc in locations %}
+            <div class="bg-gray-700 rounded-lg p-4 cursor-pointer hover:bg-gray-600 transition location-card"
+                 data-id="{{ loc.id }}"
+                 onclick="window.location='/location/{{ loc.id }}/'">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="font-semibold text-white text-sm">{{ loc.name }}</span>
+                    <span class="density-badge density-{{ loc.density_level|lower }} text-xs px-2 py-0.5 rounded-full font-bold">
+                        {{ loc.density_level }}
+                    </span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="flex-1 bg-gray-600 rounded-full h-2">
+                        <div class="h-2 rounded-full progress-bar bg-green-400"
+                             style="width: {{ loc.occupancy_percentage }}%"></div>
+                    </div>
+                    <span class="text-xs text-gray-300 w-20 text-right count-display">
+                        {{ loc.current_count }}/{{ loc.capacity_limit }}
+                    </span>
+                </div>
+            </div>
+            {% empty %}
+            <p class="text-gray-500 text-sm">No locations configured yet. <a href="/admin/locations/location/add/" class="text-blue-400">Add one →</a></p>
+            {% endfor %}
+        </div>
+
+        <!-- Manual Count Update Form -->
+        <div class="mt-4 bg-gray-700 rounded-lg p-4">
+            <h3 class="text-xs font-semibold text-gray-300 mb-3">✏️ Manual Count Update</h3>
+            <div class="flex gap-2">
+                <select id="manual-location" class="flex-1 bg-gray-600 text-white text-sm rounded px-2 py-1.5 border border-gray-500">
+                    {% for loc in locations %}
+                    <option value="{{ loc.id }}">{{ loc.name }}</option>
+                    {% endfor %}
+                </select>
+                <input type="number" id="manual-count" placeholder="Count"
+                       class="w-24 bg-gray-600 text-white text-sm rounded px-2 py-1.5 border border-gray-500"
+                       min="0">
+                <button onclick="submitManualCount()"
+                        class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-3 py-1.5 rounded transition">
+                    Update
+                </button>
+            </div>
+            <p id="manual-msg" class="text-xs text-green-400 mt-1 hidden">✓ Updated!</p>
+        </div>
+    </div>
+</div>
+
+<!-- Trend Chart -->
+<div class="bg-gray-800 rounded-xl p-4">
+    <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-semibold text-gray-300">📈 Crowd Trends (last 20 readings)</h2>
+        <select id="chart-location" onchange="fetchChartData()"
+                class="bg-gray-700 text-white text-xs rounded px-2 py-1 border border-gray-600">
+            {% for loc in locations %}
+            <option value="{{ loc.id }}">{{ loc.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <canvas id="trend-chart" height="80"></canvas>
+</div>
+
+<style>
+.density-low    { background: #166534; color: #86efac; }
+.density-medium { background: #854d0e; color: #fde68a; }
+.density-high   { background: #7f1d1d; color: #fca5a5; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+// ── Map setup ─────────────────────────────────────────────────────────────
+const map = L.map('map').setView([20, 0], 2);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors'
+}).addTo(map);
+
+const markers = {};
+const heatData = [];
+
+function densityColor(d) {
+    return d === 'HIGH' ? '#ef4444' : d === 'MEDIUM' ? '#f59e0b' : '#22c55e';
+}
+
+{% for loc in locations %}
+(function() {
+    const m = L.circleMarker(
+        [{{ loc.latitude }}, {{ loc.longitude }}],
+        { radius: 14, color: densityColor('{{ loc.density_level }}'), fillOpacity: 0.7 }
+    ).addTo(map)
+     .bindPopup(`<b>{{ loc.name }}</b><br>{{ loc.current_count }}/{{ loc.capacity_limit }}`);
+    markers[{{ loc.id }}] = m;
+    heatData.push([{{ loc.latitude }}, {{ loc.longitude }}, {{ loc.occupancy_percentage }} / 100]);
+})();
+{% endfor %}
+
+if (heatData.length > 0) {
+    L.heatLayer(heatData, { radius: 35 }).addTo(map);
+    const lats = heatData.map(x => x[0]), lngs = heatData.map(x => x[1]);
+    map.fitBounds([[Math.min(...lats)-0.01, Math.min(...lngs)-0.01],
+                   [Math.max(...lats)+0.01, Math.max(...lngs)+0.01]]);
+}
+
+// ── WebSocket ─────────────────────────────────────────────────────────────
+let ws;
+function connectWS() {
+    ws = new WebSocket(`${wsBase}/ws/crowd/`);
+
+    ws.onopen = () => setWsStatus(true);
+    ws.onclose = () => { setWsStatus(false); setTimeout(connectWS, 3000); };
+
+    ws.onmessage = (e) => {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'initial_state') {
+            updateSummary(msg.data);
+        } else if (msg.type === 'crowd_update') {
+            handleUpdate(msg.data);
+        }
+    };
+}
+connectWS();
+
+function handleUpdate(d) {
+    // Update card
+    const card = document.querySelector(`.location-card[data-id="${d.location_id}"]`);
+    if (card) {
+        card.querySelector('.count-display').textContent = `${d.current_count}/${d.capacity_limit}`;
+        const bar = card.querySelector('.progress-bar');
+        const pct = d.occupancy_percentage;
+        bar.style.width = pct + '%';
+        bar.className = 'h-2 rounded-full progress-bar ' +
+            (pct >= 70 ? 'bg-red-400' : pct >= 30 ? 'bg-yellow-400' : 'bg-green-400');
+        const badge = card.querySelector('.density-badge');
+        badge.textContent = d.density_level;
+        badge.className = `density-badge density-${d.density_level.toLowerCase()} text-xs px-2 py-0.5 rounded-full font-bold`;
+    }
+
+    // Update map marker
+    if (markers[d.location_id]) {
+        markers[d.location_id].setStyle({ color: densityColor(d.density_level) });
+        markers[d.location_id].setPopupContent(
+            `<b>${d.location_name}</b><br>${d.current_count}/${d.capacity_limit}`
+        );
+    }
+
+    // Update summary
+    updateSummaryFromWS();
+}
+
+function updateSummary(locations) {
+    let total = 0, busiest = null, maxPct = 0;
+    locations.forEach(l => {
+        total += l.current_count;
+        const pct = l.occupancy_percentage;
+        if (pct > maxPct) { maxPct = pct; busiest = l.name; }
+    });
+    document.getElementById('stat-total').textContent = total;
+    document.getElementById('stat-busiest').textContent = busiest || '—';
+}
+
+function updateSummaryFromWS() {
+    const cards = document.querySelectorAll('.location-card');
+    let total = 0, busiest = '', maxCount = 0;
+    cards.forEach(c => {
+        const text = c.querySelector('.count-display').textContent.split('/');
+        const cnt = parseInt(text[0]) || 0;
+        total += cnt;
+        if (cnt > maxCount) { maxCount = cnt; busiest = c.querySelector('.font-semibold').textContent.trim(); }
+    });
+    document.getElementById('stat-total').textContent = total;
+    document.getElementById('stat-busiest').textContent = busiest || '—';
+}
+
+// ── Trend Chart ───────────────────────────────────────────────────────────
+let trendChart;
+async function fetchChartData() {
+    const locId = document.getElementById('chart-location').value;
+    if (!locId) return;
+    const res = await fetch(`/api/locations/${locId}/logs/?limit=20`);
+    const logs = await res.json();
+
+    const labels = logs.map(l => new Date(l.timestamp).toLocaleTimeString()).reverse();
+    const data   = logs.map(l => l.people_count).reverse();
+
+    if (trendChart) trendChart.destroy();
+    trendChart = new Chart(document.getElementById('trend-chart'), {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [{
+                label: 'People Count',
+                data,
+                borderColor: '#60a5fa',
+                backgroundColor: 'rgba(96,165,250,0.15)',
+                tension: 0.4,
+                fill: true,
+                pointRadius: 3,
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { ticks: { color: '#9ca3af', maxTicksLimit: 8 }, grid: { color: '#374151' } },
+                y: { ticks: { color: '#9ca3af' }, grid: { color: '#374151' }, beginAtZero: true },
+            }
+        }
+    });
+}
+fetchChartData();
+
+// ── Manual Count ──────────────────────────────────────────────────────────
+async function submitManualCount() {
+    const locId = document.getElementById('manual-location').value;
+    const count = document.getElementById('manual-count').value;
+    if (!locId || count === '') return;
+
+    const csrfToken = document.cookie.split(';').find(c => c.trim().startsWith('csrftoken='))?.split('=')[1] || '';
+
+    const res = await fetch(`/api/locations/${locId}/update-count/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+        body: JSON.stringify({ count: parseInt(count), source: 'MANUAL' }),
+    });
+
+    if (res.ok) {
+        const msg = document.getElementById('manual-msg');
+        msg.classList.remove('hidden');
+        setTimeout(() => msg.classList.add('hidden'), 2000);
+        fetchChartData();
+    }
+}
+{% endblock %}

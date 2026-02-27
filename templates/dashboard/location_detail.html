@@ -1,0 +1,177 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}{{ location.name }} — CrowdMonitor{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="/" class="text-blue-400 text-sm hover:underline">← Back to Dashboard</a>
+</div>
+
+<div class="grid md:grid-cols-3 gap-4 mb-6">
+    <div class="bg-gray-800 rounded-xl p-5 col-span-2">
+        <h1 class="text-2xl font-bold text-white mb-1">{{ location.name }}</h1>
+        <p class="text-gray-400 text-sm mb-4">{{ location.description }}</p>
+        <div class="grid grid-cols-3 gap-4">
+            <div>
+                <p class="text-xs text-gray-400">People Now</p>
+                <p class="text-4xl font-bold text-blue-400" id="current-count">{{ location.current_count }}</p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-400">Capacity</p>
+                <p class="text-4xl font-bold text-gray-200">{{ location.capacity_limit }}</p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-400">Occupancy</p>
+                <p class="text-4xl font-bold" id="occupancy-pct"
+                   style="color: {% if location.density_level == 'HIGH' %}#ef4444{% elif location.density_level == 'MEDIUM' %}#f59e0b{% else %}#22c55e{% endif %}">
+                    {{ location.occupancy_percentage }}%
+                </p>
+            </div>
+        </div>
+        <div class="mt-4 bg-gray-700 rounded-full h-4 overflow-hidden">
+            <div id="occ-bar"
+                 class="h-4 rounded-full transition-all duration-700 {% if location.density_level == 'HIGH' %}bg-red-500{% elif location.density_level == 'MEDIUM' %}bg-yellow-400{% else %}bg-green-400{% endif %}"
+                 style="width: {{ location.occupancy_percentage }}%"></div>
+        </div>
+        <div class="mt-2 flex items-center gap-2">
+            <span class="text-xs px-2 py-0.5 rounded-full font-bold
+                {% if location.density_level == 'HIGH' %}bg-red-900 text-red-300
+                {% elif location.density_level == 'MEDIUM' %}bg-yellow-900 text-yellow-300
+                {% else %}bg-green-900 text-green-300{% endif %}"
+                id="density-badge">{{ location.density_level }}</span>
+            <span class="text-xs text-gray-400">Updated: <span id="last-updated">just now</span></span>
+        </div>
+    </div>
+
+    <div class="bg-gray-800 rounded-xl p-4 flex flex-col">
+        <h2 class="text-sm font-semibold text-gray-300 mb-3">✏️ Manual Update</h2>
+        <input type="number" id="new-count" placeholder="New count" min="0"
+               class="bg-gray-700 text-white rounded px-3 py-2 mb-2 border border-gray-600 text-sm">
+        <button onclick="updateCount()"
+                class="bg-blue-600 hover:bg-blue-500 text-white text-sm py-2 rounded transition mb-2">
+            Update Count
+        </button>
+        <p id="update-msg" class="text-xs text-green-400 hidden">✓ Updated!</p>
+        <hr class="border-gray-700 my-3">
+        <h2 class="text-sm font-semibold text-gray-300 mb-2">📍 Location</h2>
+        <p class="text-xs text-gray-400">Lat: {{ location.latitude }}</p>
+        <p class="text-xs text-gray-400">Lng: {{ location.longitude }}</p>
+        {% if location.camera_url %}
+        <p class="text-xs text-gray-400 mt-1">📷 Camera: {{ location.camera_url }}</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Trend Chart -->
+<div class="bg-gray-800 rounded-xl p-4 mb-6">
+    <h2 class="text-sm font-semibold text-gray-300 mb-3">📈 Live Trend</h2>
+    <canvas id="trend-chart" height="80"></canvas>
+</div>
+
+<!-- Logs Table -->
+<div class="bg-gray-800 rounded-xl p-4">
+    <h2 class="text-sm font-semibold text-gray-300 mb-3">📋 Recent Readings</h2>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left">
+            <thead class="text-xs text-gray-400 border-b border-gray-700">
+                <tr>
+                    <th class="pb-2">Time</th>
+                    <th class="pb-2">Count</th>
+                    <th class="pb-2">Density</th>
+                    <th class="pb-2">Occupancy</th>
+                    <th class="pb-2">Source</th>
+                </tr>
+            </thead>
+            <tbody id="logs-tbody">
+                {% for log in logs %}
+                <tr class="border-b border-gray-700 hover:bg-gray-750 text-gray-300">
+                    <td class="py-2">{{ log.timestamp|date:"M d H:i:s" }}</td>
+                    <td class="py-2">{{ log.people_count }}</td>
+                    <td class="py-2">
+                        <span class="text-xs px-2 py-0.5 rounded-full
+                            {% if log.density_level == 'HIGH' %}bg-red-900 text-red-300
+                            {% elif log.density_level == 'MEDIUM' %}bg-yellow-900 text-yellow-300
+                            {% else %}bg-green-900 text-green-300{% endif %}">
+                            {{ log.density_level }}
+                        </span>
+                    </td>
+                    <td class="py-2">{{ log.occupancy_percentage|floatformat:1 }}%</td>
+                    <td class="py-2 text-gray-500">{{ log.source }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+// WebSocket for this location
+const locId = {{ location.id }};
+let ws = new WebSocket(`${wsBase}/ws/crowd/${locId}/`);
+ws.onopen = () => setWsStatus(true);
+ws.onclose = () => { setWsStatus(false); setTimeout(() => ws = new WebSocket(`${wsBase}/ws/crowd/${locId}/`), 3000); };
+ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === 'crowd_update') applyUpdate(msg.data);
+};
+
+function applyUpdate(d) {
+    document.getElementById('current-count').textContent = d.current_count;
+    document.getElementById('occupancy-pct').textContent = d.occupancy_percentage + '%';
+    const bar = document.getElementById('occ-bar');
+    bar.style.width = d.occupancy_percentage + '%';
+    bar.className = 'h-4 rounded-full transition-all duration-700 ' +
+        (d.density_level==='HIGH' ? 'bg-red-500' : d.density_level==='MEDIUM' ? 'bg-yellow-400' : 'bg-green-400');
+    document.getElementById('density-badge').textContent = d.density_level;
+    document.getElementById('last-updated').textContent = new Date().toLocaleTimeString();
+    fetchChartData();
+}
+
+// Chart
+let chart;
+async function fetchChartData() {
+    const res = await fetch(`/api/locations/${locId}/logs/?limit=30`);
+    const logs = await res.json();
+    const labels = logs.map(l => new Date(l.timestamp).toLocaleTimeString()).reverse();
+    const data   = logs.map(l => l.people_count).reverse();
+
+    if (chart) { chart.data.labels = labels; chart.data.datasets[0].data = data; chart.update(); return; }
+    chart = new Chart(document.getElementById('trend-chart'), {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [{
+                label: 'People',
+                data,
+                borderColor: '#60a5fa',
+                backgroundColor: 'rgba(96,165,250,0.15)',
+                tension: 0.4, fill: true, pointRadius: 3,
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { ticks: { color: '#9ca3af', maxTicksLimit: 8 }, grid: { color: '#374151' } },
+                y: { ticks: { color: '#9ca3af' }, grid: { color: '#374151' }, beginAtZero: true },
+            }
+        }
+    });
+}
+fetchChartData();
+
+// Manual update
+async function updateCount() {
+    const count = document.getElementById('new-count').value;
+    if (count === '') return;
+    const csrfToken = document.cookie.split(';').find(c => c.trim().startsWith('csrftoken='))?.split('=')[1] || '';
+    await fetch(`/api/locations/${locId}/update-count/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+        body: JSON.stringify({ count: parseInt(count), source: 'MANUAL' }),
+    });
+    const msg = document.getElementById('update-msg');
+    msg.classList.remove('hidden');
+    setTimeout(() => msg.classList.add('hidden'), 2000);
+}
+{% endblock %}

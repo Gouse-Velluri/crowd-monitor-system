@@ -1,0 +1,69 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}Alerts — CrowdMonitor{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold text-white">🚨 Alerts</h1>
+    <a href="/" class="text-blue-400 text-sm hover:underline">← Dashboard</a>
+</div>
+
+<div class="space-y-3">
+{% for alert in alerts %}
+<div class="bg-gray-800 rounded-xl p-4 border-l-4
+    {% if alert.status == 'ACTIVE' %}
+        {% if alert.alert_type == 'OVERCROWD' %}border-red-500
+        {% elif alert.alert_type == 'SPIKE' %}border-orange-400
+        {% else %}border-yellow-400{% endif %}
+    {% else %}border-gray-600 opacity-60{% endif %}">
+    <div class="flex items-start justify-between">
+        <div>
+            <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs font-bold px-2 py-0.5 rounded
+                    {% if alert.alert_type == 'OVERCROWD' %}bg-red-900 text-red-300
+                    {% elif alert.alert_type == 'SPIKE' %}bg-orange-900 text-orange-300
+                    {% else %}bg-yellow-900 text-yellow-300{% endif %}">
+                    {{ alert.alert_type }}
+                </span>
+                <a href="/location/{{ alert.location.id }}/"
+                   class="text-blue-400 text-sm font-semibold hover:underline">
+                    {{ alert.location.name }}
+                </a>
+                <span class="text-xs {% if alert.status == 'ACTIVE' %}text-red-400 font-bold{% else %}text-gray-500{% endif %}">
+                    {{ alert.status }}
+                </span>
+            </div>
+            <p class="text-gray-300 text-sm">{{ alert.message }}</p>
+            <p class="text-xs text-gray-500 mt-1">
+                Triggered: {{ alert.triggered_at|date:"M d, Y H:i:s" }}
+                {% if alert.resolved_at %}
+                | Resolved: {{ alert.resolved_at|date:"M d, Y H:i:s" }}
+                {% endif %}
+            </p>
+        </div>
+        {% if alert.status == 'ACTIVE' %}
+        <button onclick="resolveAlert({{ alert.id }}, this)"
+                class="bg-gray-700 hover:bg-gray-600 text-white text-xs px-3 py-1.5 rounded transition ml-4 shrink-0">
+            Resolve
+        </button>
+        {% endif %}
+    </div>
+</div>
+{% empty %}
+<div class="bg-gray-800 rounded-xl p-8 text-center text-gray-500">
+    No alerts recorded yet.
+</div>
+{% endfor %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+async function resolveAlert(id, btn) {
+    const csrfToken = document.cookie.split(';').find(c => c.trim().startsWith('csrftoken='))?.split('=')[1] || '';
+    await fetch(`/api/alerts/${id}/resolve/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrfToken },
+    });
+    btn.closest('[class*="border-l-4"]').classList.add('opacity-40');
+    btn.remove();
+}
+{% endblock %}

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Crowd Monitor{% endblock %}</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Leaflet Maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- Leaflet.heat (heatmap) -->
+    <script src="https://leaflet.github.io/Leaflet.heat/dist/leaflet-heat.js"></script>
+    <style>
+        #map { height: 420px; }
+        .pulse-red { animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen">
+
+<!-- Navbar -->
+<nav class="bg-gray-900 border-b border-gray-800 px-6 py-3 flex items-center justify-between">
+    <a href="/" class="flex items-center gap-2 text-xl font-bold text-blue-400">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+        CrowdMonitor
+    </a>
+    <div class="flex items-center gap-6">
+        <a href="/" class="text-gray-300 hover:text-white text-sm">Dashboard</a>
+        <a href="/alerts/" class="text-gray-300 hover:text-white text-sm">Alerts</a>
+        <a href="/admin/" class="text-gray-300 hover:text-white text-sm">Admin</a>
+        <span id="ws-status" class="flex items-center gap-1 text-xs">
+            <span class="w-2 h-2 rounded-full bg-red-500" id="ws-dot"></span>
+            <span id="ws-text">Connecting…</span>
+        </span>
+    </div>
+</nav>
+
+<main class="container mx-auto px-4 py-6">
+    {% block content %}{% endblock %}
+</main>
+
+<script>
+// Global WebSocket setup
+const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+const wsBase = `${wsProtocol}//${window.location.host}`;
+
+function setWsStatus(connected) {
+    document.getElementById('ws-dot').className =
+        `w-2 h-2 rounded-full ${connected ? 'bg-green-400' : 'bg-red-500'}`;
+    document.getElementById('ws-text').textContent = connected ? 'Live' : 'Reconnecting…';
+}
+
+{% block extra_js %}{% endblock %}
+</script>
+</body>
+</html>

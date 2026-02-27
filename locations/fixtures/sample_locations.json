@@ -1,0 +1,70 @@
+[
+  {
+    "model": "locations.location",
+    "pk": 1,
+    "fields": {
+      "name": "Main Library",
+      "description": "Central campus library, ground floor.",
+      "latitude": "12.971599",
+      "longitude": "77.594566",
+      "capacity_limit": 300,
+      "current_count": 45,
+      "density_level": "LOW",
+      "is_active": true,
+      "camera_url": "0",
+      "last_updated": "2025-01-01T09:00:00Z",
+      "created_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "locations.location",
+    "pk": 2,
+    "fields": {
+      "name": "Main Auditorium",
+      "description": "Seats 500 for events.",
+      "latitude": "12.972100",
+      "longitude": "77.595200",
+      "capacity_limit": 500,
+      "current_count": 380,
+      "density_level": "HIGH",
+      "is_active": true,
+      "camera_url": "",
+      "last_updated": "2025-01-01T09:00:00Z",
+      "created_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "locations.location",
+    "pk": 3,
+    "fields": {
+      "name": "Cafeteria",
+      "description": "Student dining hall.",
+      "latitude": "12.971000",
+      "longitude": "77.594000",
+      "capacity_limit": 200,
+      "current_count": 110,
+      "density_level": "MEDIUM",
+      "is_active": true,
+      "camera_url": "",
+      "last_updated": "2025-01-01T09:00:00Z",
+      "created_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "locations.location",
+    "pk": 4,
+    "fields": {
+      "name": "Gate 1 Entrance",
+      "description": "Main campus entry point.",
+      "latitude": "12.970500",
+      "longitude": "77.593800",
+      "capacity_limit": 150,
+      "current_count": 20,
+      "density_level": "LOW",
+      "is_active": true,
+      "camera_url": "",
+      "last_updated": "2025-01-01T09:00:00Z",
+      "created_at": "2025-01-01T00:00:00Z"
+    }
+  }
+]
