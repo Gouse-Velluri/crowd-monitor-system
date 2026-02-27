@@ -1,170 +1,96 @@
-
-
 # 🧠 Smart Crowd Density Monitor
 
-A production-ready **real-time crowd monitoring system** built with Django, Django Channels, and AI-based person detection.
-
-This system detects people from images or camera streams, calculates crowd density, updates dashboards instantly using WebSockets, and triggers automatic alerts when overcrowding occurs.
+A production-ready Django project with real-time WebSocket updates, AI person detection (YOLO/Haar), REST API, live heatmap dashboard, and an alert system.
 
 ---
 
-# 📌 What is This Project?
-
-Smart Crowd Density Monitor is a scalable crowd intelligence system designed to:
-
-* Detect number of people using AI (YOLO / OpenCV)
-* Calculate occupancy percentage in real-time
-* Broadcast live updates via WebSockets
-* Trigger automatic safety alerts
-* Store historical crowd data for analysis
-
-It simulates a real-world smart city monitoring system.
-
----
-
-# 🎯 Why Is It Useful?
-
-Overcrowding can cause:
-
-* Safety risks
-* Stampedes
-* Emergency response delays
-* Security issues
-
-This system helps authorities:
-
-* Monitor live crowd density
-* Detect abnormal spikes
-* Take preventive action
-* Analyze peak traffic hours
-* Improve public safety planning
-
----
-
-# 🏗 System Architecture
-
-```
-Camera / Image Input
-        ↓
-AI Detection Engine (YOLO / Haar)
-        ↓
-Crowd Density Calculator
-        ↓
-Alert Engine
-        ↓
-WebSocket Broadcast (Channels + Redis)
-        ↓
-Live Dashboard + Historical Analytics
-```
-
----
-
-# 🛠 Tech Stack
-
-| Layer        | Technology              |
-| ------------ | ----------------------- |
-| Backend      | Django 4.x              |
-| REST API     | Django REST Framework   |
-| Real-Time    | Django Channels + Redis |
-| ASGI Server  | Gunicorn + Uvicorn      |
-| AI Detection | OpenCV + YOLOv8         |
-| Database     | PostgreSQL (Production) |
-| Frontend     | HTML + Tailwind CSS     |
-| Charts       | Chart.js                |
-| Maps         | Leaflet.js + Heatmap    |
-| Deployment   | Render                  |
-
----
-
-# 📂 Project Structure
+## 🏗 Project Structure
 
 ```
 crowd_monitor/
-├── crowd_monitor/          # Core configuration
-├── locations/              # Location + CrowdLog models
+├── crowd_monitor/          # Project core
+│   ├── settings.py
+│   ├── urls.py
+│   ├── asgi.py             # WebSocket entry point
+│   └── routing.py          # WebSocket URL routes
+├── locations/              # Location & crowd count models
+│   ├── models.py           # Location, CrowdLog
+│   ├── views.py            # REST API + WebSocket broadcast
+│   ├── consumers.py        # WebSocket consumers
+│   ├── serializers.py
+│   └── fixtures/           # Sample data
 ├── detection/              # AI detection engine
-├── alerts/                 # Alert logic + trigger system
-├── dashboard/              # Live frontend
+│   ├── detector.py         # HaarDetector + YOLODetector
+│   ├── views.py            # REST endpoints for detection
+│   └── management/
+│       └── commands/
+│           └── run_detection.py   # Background polling command
+├── alerts/                 # Alert system
+│   ├── models.py
+│   ├── utils.py            # check_and_trigger_alerts()
+│   └── views.py
+├── dashboard/              # HTML frontend
+│   └── views.py
 ├── templates/
+│   └── dashboard/
+│       ├── base.html
+│       ├── index.html            # Live map + cards + chart
+│       ├── location_detail.html  # Single location view
+│       └── alerts.html
 ├── requirements.txt
 └── manage.py
 ```
 
 ---
 
-# ⚡ Key Features
+## ⚡ Quick Start
 
-✔ AI-based person detection (YOLO / Haar)
-✔ Real-time WebSocket updates
-✔ Live heatmap visualization
-✔ REST API endpoints
-✔ Alert triggering at 80% capacity
-✔ Spike detection (>30% sudden increase)
-✔ Historical analytics storage
-✔ Admin dashboard support
-✔ Production-ready deployment setup
-
----
-
-# 📡 WebSocket System
-
-On every crowd update, the server broadcasts:
-
-```json
-{
-  "type": "crowd_update",
-  "location_id": 1,
-  "current_count": 85,
-  "capacity_limit": 300,
-  "occupancy_percentage": 28.3,
-  "density_level": "MEDIUM"
-}
-```
-
-This ensures real-time UI updates without page refresh.
-
----
-
-# 🧠 Crowd Density Logic
-
-```
-Occupancy % = (Current Count / Capacity Limit) × 100
-```
-
-Thresholds:
-
-* 🟢 Low: < 30%
-* 🟡 Medium: 30% – 70%
-* 🔴 High: > 80% (Alert Triggered)
-
----
-
-# 🚨 Alert System
-
-Alerts are automatically triggered when:
-
-* Occupancy exceeds 80%
-* Crowd increases more than 30% between intervals
-
-Alerts can:
-
-* Be viewed in dashboard
-* Be resolved via API
-* Send email notifications
-
----
-
-# 🚀 Running Locally
+### 1. Install dependencies
 
 ```bash
-git clone https://github.com/your-username/crowd_monitor.git
-cd crowd_monitor
-pip install -r requirements.txt
-python manage.py migrate
-python manage.py runserver
+pip install django djangorestframework "channels[daphne]" channels-redis django-cors-headers
 ```
 
-To start background AI detection:
+For AI detection (optional):
+```bash
+pip install opencv-python ultralytics   # YOLO
+```
+
+### 2. Start Redis (for WebSocket channel layer)
+
+```bash
+docker run -p 6379:6379 redis:alpine
+```
+
+> **No Redis?** Edit `settings.py` and switch to InMemoryChannelLayer (see comments).
+
+### 3. Run migrations
+
+```bash
+python manage.py migrate
+```
+
+### 4. Load sample data
+
+```bash
+python manage.py loaddata locations/fixtures/sample_locations.json
+```
+
+### 5. Create admin user
+
+```bash
+python manage.py createsuperuser
+```
+
+### 6. Start the server (ASGI)
+
+```bash
+daphne -p 8000 crowd_monitor.asgi:application
+# or
+python manage.py runserver   # WebSockets also work in dev
+```
+
+### 7. (Optional) Run AI detection
 
 ```bash
 python manage.py run_detection --mode yolo --interval 5
@@ -172,51 +98,169 @@ python manage.py run_detection --mode yolo --interval 5
 
 ---
 
-# 🌐 Production Deployment (Render)
+## 🌐 Key URLs
 
-* Use PostgreSQL
-* Use Redis for Channels
-* Set `DEBUG=False`
-* Use Gunicorn with Uvicorn worker
+| URL | Description |
+|-----|-------------|
+| `/` | Live dashboard (map + cards + chart) |
+| `/location/<id>/` | Single location detail |
+| `/alerts/` | Alert log |
+| `/admin/` | Django admin |
+| `ws://localhost:8000/ws/crowd/` | All-locations WebSocket |
+| `ws://localhost:8000/ws/crowd/<id>/` | Single-location WebSocket |
 
-Start command:
+---
+
+## 📡 REST API
+
+### Locations
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/locations/` | List all locations |
+| POST | `/api/locations/` | Create location |
+| GET | `/api/locations/<id>/` | Location detail |
+| POST | `/api/locations/<id>/update-count/` | Update crowd count |
+| GET | `/api/locations/<id>/logs/` | Count history |
+| GET | `/api/locations/<id>/stats/` | 24h statistics |
+
+**Example — update count (manual or from script):**
+```bash
+curl -X POST http://localhost:8000/api/locations/1/update-count/ \
+     -H "Content-Type: application/json" \
+     -d '{"count": 85, "source": "MANUAL"}'
+```
+
+### Detection
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/detection/detect/` | Detect from base64 image |
+| POST | `/api/detection/detect/<id>/` | Detect from camera & update location |
+
+### Alerts
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/alerts/` | List alerts |
+| GET | `/api/alerts/?status=ACTIVE` | Active alerts only |
+| POST | `/api/alerts/<id>/resolve/` | Resolve an alert |
+
+---
+
+## 🧠 AI Detection Engine
+
+### `detection/detector.py`
+
+Two classes:
+
+**`HaarDetector`** — Uses OpenCV HOG descriptor. Fast, no GPU needed.
+
+**`YOLODetector`** — Uses YOLOv8 (ultralytics). More accurate.
+
+```python
+from detection.detector import get_detector
+
+detector = get_detector('yolo')   # or 'haar'
+
+# From webcam
+count = detector.detect_from_camera(source=0, duration_seconds=5)
+
+# From RTSP stream
+count = detector.detect_from_camera(source='rtsp://192.168.1.10:554/stream')
+
+# From single frame (numpy array)
+count = detector.detect_from_frame(frame)
+```
+
+### Run continuous detection
 
 ```bash
-gunicorn crowd_monitor.asgi:application -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
+python manage.py run_detection --mode yolo --interval 5
+# Only one location:
+python manage.py run_detection --location 1 --mode haar
 ```
 
 ---
 
-# 🎓 What Was Developed in This Project?
+## 🔌 WebSocket Protocol
 
-This project demonstrates:
+**Connect:** `ws://localhost:8000/ws/crowd/`
 
-* Full-stack Django architecture
-* ASGI-based real-time communication
-* WebSocket broadcast system
-* AI computer vision integration
-* Scalable alerting mechanism
-* Production cloud deployment
-* Database + Redis integration
-* REST API design
+**On connect**, server sends:
+```json
+{ "type": "initial_state", "data": [ ...all locations... ] }
+```
 
-It reflects production-level system design practices.
+**On every count update**, server broadcasts:
+```json
+{
+  "type": "crowd_update",
+  "data": {
+    "location_id": 1,
+    "location_name": "Main Library",
+    "current_count": 85,
+    "capacity_limit": 300,
+    "density_level": "MEDIUM",
+    "occupancy_percentage": 28.3,
+    "last_updated": "2025-01-01T12:00:00Z"
+  }
+}
+```
 
 ---
 
-# 🔮 Future Enhancements
+## 🚨 Alert System
 
-* Live CCTV integration
-* Predictive crowd forecasting (ML models)
-* SMS alerts (Twilio)
-* Role-based access control
-* Multi-location analytics dashboard
-* Custom-trained YOLO model
+Alerts trigger automatically when:
+- Crowd exceeds **80% capacity** → `OVERCROWD` alert
+- Count jumps **>30%** between readings → `SPIKE` alert
+
+Notifications are sent via email (configure `settings.py`):
+```python
+ALERT_EMAIL_FROM = 'alerts@crowdmonitor.com'
+ALERT_EMAIL_TO   = ['admin@example.com']
+```
 
 ---
 
-# 👨‍💻 Developer
+## 🚀 Production Deployment
 
-Gouse Velluri
-Full Stack Developer | Django | Real-Time Systems | AI Integration
+```bash
+# 1. Switch to PostgreSQL in settings.py
+# 2. Set DEBUG=False, update ALLOWED_HOSTS
+# 3. Collect static files
+python manage.py collectstatic
 
+# 4. Use gunicorn + daphne behind nginx
+daphne -b 0.0.0.0 -p 8000 crowd_monitor.asgi:application
+
+# 5. Run Redis
+docker run -d -p 6379:6379 redis:alpine
+```
+
+---
+
+## 🔮 Extension Ideas
+
+- **Predictive Analysis** — Use scikit-learn on `CrowdLog` to forecast peak hours
+- **Anomaly Detection** — Z-score or moving average on crowd counts
+- **SMS Alerts** — Integrate Twilio in `alerts/utils.py`
+- **Custom YOLO model** — Train on your own camera footage for better accuracy
+- **Mobile PWA** — The dashboard is mobile-responsive; add a service worker
+
+---
+
+## 🛠 Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Backend | Django 4.x |
+| REST API | Django REST Framework |
+| Real-Time | Django Channels + Redis |
+| ASGI Server | Daphne |
+| AI Detection | OpenCV + YOLOv8 |
+| Database | SQLite (dev) / PostgreSQL (prod) |
+| Frontend | HTML + Tailwind CSS |
+| Charts | Chart.js |
+| Maps | Leaflet.js + Leaflet.heat | 
